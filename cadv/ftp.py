@@ -5,8 +5,10 @@ from datetime import datetime
 class myFTP(FTP):
     def upload(self, filename, callback=None, path=None):
         current_path = self.pwd()
-        if not path:
+        if not path is None:
             self.cwd(path)
+        else:
+            path = './'
         with open(filename, 'rb') as f:
             self.storbinary('STOR '+filename, f, callback=callback)
         self.cwd(current_path)
