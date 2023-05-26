@@ -9,11 +9,19 @@ class myFTP(FTP):
             self.cwd(path)
         else:
             path = './'
-        with open(filename, 'rb') as f:
-            self.storbinary('STOR '+filename, f, callback=callback)
+
+        pwd = os.getcwd()
+        filepath, basename = os.path.split(filename)
+        os.chdir(filepath)
+        
+        with open(basename, 'rb') as f:
+            self.storbinary('STOR '+basename, f, callback=callback)
         self.cwd(current_path)
-    
+        os.chdir(pwd)
+
     def download(self, filename, callback=None, path='./'):
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
         if callback is None:
             with open(os.path.join(path,filename), "wb") as f:
                 self.retrbinary('RETR '+filename, f.write)
