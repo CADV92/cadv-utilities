@@ -6,7 +6,7 @@ import cartopy.io.shapereader as shpreader
 from PIL import Image
 
 class Canvas:
-    def __init__(self, extent=None, projection=ccrs.PlateCarree(), central_longitude=0, darkStyle=False, grid=True, cgrid=False):
+    def __init__(self, extent=None, projection=ccrs.PlateCarree(), central_longitude=0, darkStyle=False, grid=True, cgrid=False, frames=3):
         self.extent = extent
         self.projection = projection
         self.central_longitude = central_longitude
@@ -14,9 +14,9 @@ class Canvas:
         self.maincolor, self.labelcolor = ('white', 'black') if not self.darkStyle else ('black', 'white')
         self.grid = grid
         self.cgrid = cgrid
-        self.frame(self.extent, central_longitude=self.central_longitude)
+        self.frame(self.extent, central_longitude=self.central_longitude, canva_frames=frames)
 
-    def frame(self, extent, figsize=(10,8), central_longitude=None):
+    def frame(self, extent, figsize=(10,8), central_longitude=None, canva_frames=3):
         if extent is not None:
             xfig, yfig = self.__proportion(*extent)
             yfig *= 1.12
@@ -30,7 +30,12 @@ class Canvas:
         #     _dy_axes = [0.03, 0.92, 0.05]
         # else:
         #     _dy_axes = [0.03, 0.92, 0.05]
-        _dy_axes = [0.03, 0.92, 0.05]
+        _header = 0
+        if canva_frames==3:
+            _dy_axes = [0.037037037037037035, 0.9259259259259259, 0.03703703703703698]
+            _header = 1
+        elif canva_frames==2:
+            _dy_axes = [0.037037037037037035, 0.9259259259259259, 0.03703703703703698]
 
         if central_longitude is not None:
             self.__ax_main = self.__fig.add_axes([0+glDelta, _dy_axes[0]+glDelta, 1-glDelta, _dy_axes[1]-glDelta], projection=ccrs.PlateCarree(central_longitude=central_longitude))
@@ -60,14 +65,15 @@ class Canvas:
             gl.bottom_labels = True
             gl.ylabel_style = {'color': 'k', 'weight': 'bold', 'size': 7.5, 'verticalalignment': 'center', 'bbox': dict(boxstyle="round", pad=0.3, fc="red", ec="gray", lw=0.5)}
             gl.xlabel_style = {'color': 'k', 'weight': 'bold', 'size': 7.5, 'bbox': {'facecolor':'green',
-               'alpha':1, 'pad':0}}
+                                'alpha':1, 'pad':0}}
             if self.cgrid:
                 gl.ypadding = -6
                 gl.xpadding = -6
 
         # Header
-        self.__ax_header = self.__fig.add_axes([0.01, 1-_dy_axes[2], 0.98, _dy_axes[2]], facecolor=self.maincolor, frameon=False)
-        self.__ax_header.set_axis_off()
+        if _header:
+            self.__ax_header = self.__fig.add_axes([0.01, 1-_dy_axes[2], 0.98, _dy_axes[2]], facecolor=self.maincolor, frameon=False)
+            self.__ax_header.set_axis_off()
 
         # Footer
         self.__ax_footer = self.__fig.add_axes([0+glDelta, 0, 1-glDelta, _dy_axes[0]])
@@ -76,6 +82,9 @@ class Canvas:
         # self.__ax_bottom_frame.set_visible(True)
         self.__ax_footer.set_axis_off()
         self.manual_tick_axes()
+    
+    def headeroff(self, status=True):
+        self.__ax_header.set_visible(status)
     
     def __deltatick(self, min, max, n=5):
         delta = (max-min)/n
@@ -94,7 +103,7 @@ class Canvas:
         return dx, dy
     
     def __check_extent(self):
-        extent = self.__subextent if hasattr(self, 'extent') else self.extent
+        extent = self.__subextent if not hasattr(self, 'extent') else self.extent
         return extent
 
     def set_extent(self, extent, **kwargs):
@@ -103,6 +112,12 @@ class Canvas:
 
     def imshow(self, data, extent, **kwargs):
         return self.__ax_main.imshow(data, extent=extent, **kwargs)
+
+    def vector(self, lons, lats, var1, var2, skip=1,**kwargs):
+        return self.__ax_main.quiver(lons[::skip, ::skip], lats[::skip, ::skip], var1[::skip, ::skip], var2[::skip, ::skip], **kwargs)
+    
+    def vector_legend(self, vector, x, y, u, label, **kwargs):
+        return self.__ax_main.quiverkey(vector, x, y, u, label, **kwargs)
 
     def pcolormesh(self, x, y, data, **kwargs):
         return self.__ax_main.pcolormesh(x, y, data, **kwargs)
@@ -169,6 +184,11 @@ class Canvas:
             verticalalignment='center', rotation=0, fontsize=size, style='normal',
             weight=weight, color=self.labelcolor, fontname=fontname)
     
+    def draw_text_box(self, text, xy, **kwargs):
+        self.__ax_main.annotate(text, xy=xy, xycoords='axes fraction', 
+                                ha='right', va='top', size=20, weight='bold', zorder=1000,
+                                bbox=dict(boxstyle='round', facecolor='w', alpha=0.8))
+    
     def scalling_value(self, value):
         ancho, alto = self.__fig.get_size_inches()*self.__fig.dpi
         relacion = ancho / alto
@@ -199,7 +219,7 @@ class Canvas:
 
         xlocation = img_size[0]*self.__ax_main.get_position().xmin*0.8
 
-        self.__fig.figimage(logo, xlocation, ylocation+31, origin='upper', zorder=3)
+        self.__fig.figimage(logo, xlocation, ylocation+33, origin='upper', zorder=3)
     
     def add_shp(self, shpfile, points=False, **kwargs):
         width = kwargs['width'] if 'width' in kwargs else 0.5
@@ -210,7 +230,14 @@ class Canvas:
         fcolor = kwargs['fcolor']  if 'fcolor' in kwargs else 'none'
 
         if not points:
-            shape_feature = shpreader.Reader(shpfile).geometries()
+            if filter is None:
+                shape_feature = list(shpreader.Reader(shpfile).geometries())
+            else:
+                shape_feature = []
+                reader = shpreader.Reader(shpfile)
+                for record, geometry in zip(reader.records(), reader.geometries()):
+                    if record.attributes[filter[0]] == filter[1]:
+                        shape_feature.append(geometry)
             self.__ax_main.add_geometries(shape_feature, self.projection, edgecolor=lcolor, facecolor=fcolor, linewidth=width, alpha=alpha)
         else:
             shape_feature = shpreader.Reader(shpfile)
@@ -220,6 +247,9 @@ class Canvas:
                 if (lon<extent[1] and lon>extent[0]) and (lat<extent[3] and lat>extent[2]):
                     self.__ax_main.plot(lon, lat, marker='.', color='m', markersize=3, markeredgecolor='m', transform=self.projection)
                     self.__ax_main.plot(lon, lat, marker='+', color='m', markersize=3, markeredgecolor='m', transform=self.projection)
+    
+    def point(self, lonlat, **kwargs):
+        return self.__ax_main.scatter(*lonlat, **kwargs)
     
     def border(self, color='black', width=0.2, fill=True):
         # Add coastlines, borders and gridlines
@@ -241,7 +271,7 @@ class Canvas:
         plt.rcParams['figure.facecolor'] = self.maincolor
         plt.rcParams['axes.facecolor'] = self.maincolor
 
-        self.__ax_header.set_alpha(None)
+        # self.__ax_header.set_alpha(None)
         self.__ax_main.set_alpha(None)
         self.__ax_footer.set_alpha(None)
 
@@ -261,7 +291,7 @@ class Canvas:
         plt.rcParams['figure.facecolor'] = self.maincolor
         plt.rcParams['axes.facecolor'] = self.maincolor
 
-        self.__ax_header.set_alpha(None)
+        # self.__ax_header.set_alpha(None)
         self.__ax_main.set_alpha(None)
         self.__ax_footer.set_alpha(None)
         savefig = plt.savefig(filename, bbox_inches='tight',pad_inches=0, **kwargs)
