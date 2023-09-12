@@ -355,14 +355,14 @@ class Canvas:
 
         yrange=ylim[1]-ylim[0]
         xrange=xlim[1]-xlim[0]
-        for xtick in self.__xlocs:
+        for xtick in self.__xlocs[(self.__xlocs>self.extent[0]) & (self.__xlocs<self.extent[1])]:
             if xtick>0:
                 string = f'{xtick:3.0f}° E'
             else:
                 string = f'{abs(xtick):3.0f}° W'
             self.text(xtick, ylim[0]+yrange*0.01, string, size=self.scalling_value(0.6), color='w', ha='center', va='bottom', bbox=dict(boxstyle='round', facecolor='k', edgecolor='none', alpha=0.28, pad=0.28),weight="bold", zorder=5)
 
-        for ytick in self.__ylocs[::2]:
+        for ytick in self.__ylocs[(self.__ylocs>self.extent[2]) & (self.__ylocs<self.extent[3])][::2]:
             if ytick>0:
                 string = f'{ytick:3.0f}° N'
             else:
