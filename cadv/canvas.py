@@ -134,6 +134,7 @@ class Canvas:
         try:
             data, lons = add_cyclic_point(data, coord=np.arange(lons[0],lons[-1]+dlon*0.5, dlon))
         except:
+            pass
         if 'transform' in kwargs:
             self.__transform = kwargs['transform']
         if fill:
