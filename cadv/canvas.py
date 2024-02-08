@@ -6,7 +6,7 @@ import cartopy.io.shapereader as shpreader
 from PIL import Image
 
 class Canvas:
-    def __init__(self, extent=None, projection=ccrs.PlateCarree(), central_longitude=0, darkStyle=False, grid=True, cgrid=False, frames=3):
+    def __init__(self, extent=None, projection=ccrs.PlateCarree(), central_longitude=0, darkStyle=False, grid=True, cgrid=False, frames=3, **kwargs):
         self.extent = extent
         self.projection = projection
         self.central_longitude = central_longitude
@@ -14,15 +14,20 @@ class Canvas:
         self.maincolor, self.labelcolor = ('white', 'black') if not self.darkStyle else ('black', 'white')
         self.grid = grid
         self.cgrid = cgrid
+        self.__axis_format = kwargs['axis_format'] if 'axis_format' in kwargs else '3.0f'
+        self.__axis_fsize = kwargs['axis_fsize'] if 'axis_fsize' in kwargs else 0.6
+
+        self.__dpi = 200 if kwargs.get('dpi') is None else kwargs.get('dpi')
+
         self.frame(self.extent, central_longitude=self.central_longitude, canva_frames=frames)
 
-    def frame(self, extent, figsize=(10,8), central_longitude=None, canva_frames=3):
+    def frame(self, extent, figsize=(10,8), central_longitude=None, canva_frames=3, **kwargs):
         if extent is not None:
             xfig, yfig = self.__proportion(*extent)
             yfig *= 1.12
             figsize = (xfig, yfig)
 
-        self.__fig = plt.figure(figsize=figsize, constrained_layout=True, dpi=200)
+        self.__fig = plt.figure(figsize=figsize, constrained_layout=True, dpi=self.__dpi)
         
         glDelta = 0.04 if self.grid else 0
         # self.__proportion_extent = (self.extent[3]-self.extent[2])/(self.extent[1]-self.extent[0])
@@ -32,7 +37,7 @@ class Canvas:
         #     _dy_axes = [0.03, 0.92, 0.05]
         _header = 0
         if canva_frames==3:
-            _dy_axes = [0.037037037037037035, 0.9259259259259259, 0.03703703703703698]
+            _dy_axes = [0.037037037037037035, 0.9259259259259259, 0.054]
             _header = 1
         elif canva_frames==2:
             _dy_axes = [0.037037037037037035, 0.9259259259259259, 0.03703703703703698]
@@ -40,7 +45,7 @@ class Canvas:
         if central_longitude is not None:
             self.__ax_main = self.__fig.add_axes([0+glDelta, _dy_axes[0]+glDelta, 1-glDelta, _dy_axes[1]-glDelta], projection=ccrs.PlateCarree(central_longitude=central_longitude))
         else:
-            self.__ax_main = self.__fig.add_axes([0, _dy_axes[0], 1, _dy_axes[1]], crs=self.projection)
+            self.__ax_main = self.__fig.add_axes([0, _dy_axes[0]-0.03, 1, _dy_axes[1]], crs=self.projection)
         
         if extent is not None:
             self.__ax_main.set_extent(extent, crs=self.projection)
@@ -59,10 +64,8 @@ class Canvas:
             gl = self.__ax_main.gridlines(
                 crs=ccrs.PlateCarree(), color='gray', linestyle='--', linewidth=0.25, alpha=0.4,
                 xlocs=self.__xlocs, ylocs=self.__ylocs)
-            # gl.top_labels = False
-            # gl.right_labels = False
-            gl.left_labels = True
-            gl.bottom_labels = True
+            gl.left_labels = False
+            gl.bottom_labels = False
             gl.ylabel_style = {'color': 'k', 'weight': 'bold', 'size': 7.5, 'verticalalignment': 'center', 'bbox': dict(boxstyle="round", pad=0.3, fc="red", ec="gray", lw=0.5)}
             gl.xlabel_style = {'color': 'k', 'weight': 'bold', 'size': 7.5, 'bbox': {'facecolor':'green',
                                 'alpha':1, 'pad':0}}
@@ -76,19 +79,22 @@ class Canvas:
             self.__ax_header.set_axis_off()
 
         # Footer
-        self.__ax_footer = self.__fig.add_axes([0+glDelta, 0, 1-glDelta, _dy_axes[0]])
+        self.__ax_footer = self.__fig.add_axes([0+glDelta, 0, 1-glDelta, _dy_axes[0]+0.01])
         self.__ax_footer.set_visible(True)
         # self.__ax_bottom_frame = self.__fig.add_axes([0, 0.0, 1, 0.03])
         # self.__ax_bottom_frame.set_visible(True)
         self.__ax_footer.set_axis_off()
-        self.manual_tick_axes()
+        self.manual_tick_axes(self.__axis_format, size=self.__axis_fsize)
     
     def headeroff(self, status=True):
         self.__ax_header.set_visible(status)
     
     def __deltatick(self, min, max, n=5):
         delta = (max-min)/n
-        if delta < 10:
+        
+        if delta < 1:
+            delta = 0.5
+        elif delta < 10:
             delta = int(delta)
         else:
             delta = (delta //10) * 10
@@ -125,7 +131,10 @@ class Canvas:
     def contour(self, lons, lats, data, fill=False, **kwargs):
         from cartopy.util import add_cyclic_point
         dlon = (lons[1]-lons[0])
-        data, lons = add_cyclic_point(data, coord=np.arange(lons[0],lons[-1]+dlon*0.5, dlon))
+        try:
+            data, lons = add_cyclic_point(data, coord=np.arange(lons[0],lons[-1]+dlon*0.5, dlon))
+        except:
+            print('PI PI PI')
         if 'transform' in kwargs:
             self.__transform = kwargs['transform']
         if fill:
@@ -143,20 +152,25 @@ class Canvas:
         kwargs['fontsize'] = kwargs['fontsize'] if 'fontsize' in kwargs else self.scalling_value(0.5)
         return self.__ax_main.clabel(obj, **kwargs)
     
-    def colorbar(self, image, **kwargs):
-        self.__ax_footer.set_axis_on()
-        cbar = plt.colorbar(image, cax=self.__fig.add_axes(self.__ax_footer), orientation='horizontal', pad=0.05, fraction=0.5, aspect=100, **kwargs)
+    def colorbar(self, image, lab, **kwargs):
+        proportion = self.scalling_value(1)
+        self.__ax_footer.axis('off')
+        cax_yini = self.__ax_footer.get_position().height*0.45
+        cax = self.__fig.add_axes([self.__ax_footer.get_position().x0, cax_yini, self.__ax_footer.get_position().x1, self.__ax_footer.get_position().height-cax_yini])
+
+
+        cbar = plt.colorbar(image, cax=cax, orientation='horizontal', pad=0.05, fraction=0.5, aspect=100, **kwargs)
         cbar.draw_all()
-        cbar.ax.tick_params(labelcolor=self.labelcolor, direction='in', pad=1.5)
+        cbar.ax.tick_params(labelcolor=self.labelcolor, direction='in', pad=1.5, labelsize=0.6*proportion)
         if 'ticks' in kwargs:
-            cbar.ax.set_xticklabels(kwargs['ticks'], fontsize=8, weight='bold')
+            cbar.ax.set_xticklabels(kwargs['ticks'], fontsize=0.6*proportion, weight='bold')
         return cbar
 
-    def legend_palette(self, colors=None, names=None, **kwargs):
+    def legend_palette(self, colors=None, names=None, colunms=4, edgecolor="#fff8", **kwargs):
         import matplotlib.patches as mpatches
         self.__ax_footer.axis('off')
-        squares = [mpatches.Patch(facecolor=color, label=name, edgecolor="#fff8", linewidth=0.4) for color, name in zip(colors, names)]
-        self.__ax_footer.legend(handles=squares, ncol=4, loc='center', framealpha=0, bbox_to_anchor=(0, 0, 1, 1), **kwargs)
+        squares = [mpatches.Patch(facecolor=color, label=name, edgecolor=edgecolor, linewidth=0.4) for color, name in zip(colors, names)]
+        self.__ax_footer.legend(handles=squares, ncol=colunms, loc='center', framealpha=0, bbox_to_anchor=(0, 0.1, 1, 1), **kwargs)
     
     def title(self, title, **kwargs):
         img_size = self.__fig.get_size_inches()*self.__fig.dpi
@@ -190,7 +204,7 @@ class Canvas:
                                 bbox=dict(boxstyle='round', facecolor='w', alpha=0.8))
     
     def scalling_value(self, value):
-        ancho, alto = self.__fig.get_size_inches()*self.__fig.dpi
+        ancho, alto = self.__fig.get_size_inches()*200
         relacion = ancho / alto
         if relacion < 1:
             proporcion = 0.008 * alto
@@ -201,25 +215,28 @@ class Canvas:
         else:
             proporcion = 0.008 * (ancho + alto) / 2
         return proporcion*value*3/4
-
+    
     def add_logo(self, logo):
+        # Abriendo imagen LOGO
         logo = Image.open(logo)
-        # Obtener el tamaño de la imagen
+
+        # Tamaño de Imagen principal
         img_size = self.__fig.get_size_inches()*self.__fig.dpi
 
-        Percent = (img_size[1]*self.__ax_header.get_position().height/logo.size[1])
-        
-        LogoWidth = int(float(logo.size[0])*float(Percent))
-        LogoHeight = int(float(logo.size[1])*float(Percent))
-        logo = logo.resize((LogoWidth, LogoHeight), Image.BILINEAR)
-        LogoHeight = float(logo.size[1])
+        # Tamaño del Logo en función de la altura
+        logo_height = img_size[1] * self.__ax_header.get_position().height
 
-        offset = 1 if self.grid else 0.3
-        ylocation = img_size[1]*(self.__ax_footer.get_position().height + self.__ax_main.get_position().height) + LogoHeight*offset
+        # Redimensionando el Logo manteniendo la proporción
+        aspect_ratio = logo.width / logo.height
+        logo_width = int(logo_height * aspect_ratio)
+        logo = logo.resize((logo_width, int(logo_height)), Image.BILINEAR)
 
-        xlocation = img_size[0]*self.__ax_main.get_position().xmin*0.8
+        # Calcular posición del Logo
+        x_location = 0
+        y_location = img_size[1] - logo_height
 
-        self.__fig.figimage(logo, xlocation, ylocation+33, origin='upper', zorder=3)
+        # Añadiendo Logo
+        self.__fig.figimage(logo, x_location, y_location, origin='upper', zorder=3)
     
     def add_shp(self, shpfile, points=False, **kwargs):
         width = kwargs['width'] if 'width' in kwargs else 0.5
@@ -228,6 +245,9 @@ class Canvas:
 
         lcolor = kwargs['lcolor']  if 'lcolor' in kwargs else 'none'
         fcolor = kwargs['fcolor']  if 'fcolor' in kwargs else 'none'
+
+        label_field = kwargs.get('label_field') 
+        label_distance = kwargs.get('label_distance') 
 
         if not points:
             if filter is None:
@@ -247,9 +267,15 @@ class Canvas:
                 if (lon<extent[1] and lon>extent[0]) and (lat<extent[3] and lat>extent[2]):
                     self.__ax_main.plot(lon, lat, marker='.', color='m', markersize=3, markeredgecolor='m', transform=self.projection)
                     self.__ax_main.plot(lon, lat, marker='+', color='m', markersize=3, markeredgecolor='m', transform=self.projection)
+                    if label_field is not None:
+                        label_distance = label_distance if label_distance is not None else 0.01
+                        self.__ax_main.text(lon+label_distance, lat+label_distance, record.attributes[label_field], fontsize=self.scalling_value(0.8), ha='left', va='center', transform=ccrs.PlateCarree())
     
     def point(self, lonlat, **kwargs):
         return self.__ax_main.scatter(*lonlat, **kwargs)
+
+    def scatter(self, **kwargs):
+        return self.__ax_main.scatter(**kwargs)
     
     def border(self, color='black', width=0.2, fill=True):
         # Add coastlines, borders and gridlines
@@ -284,8 +310,9 @@ class Canvas:
         return os.path.join(path,name)
 
     def save_img(self, filename, **kwargs):
-        # if os.path.dirname(filename) or not os.path.isdir(os.path.dirname(filename)):
-        #     os.makedirs(os.path.dirname(filename), exist_ok=True)
+        # outputpath = os.path.dirname(filename)
+        # if not os.path.exists(outputpath):
+        #     os.makedirs(outputpath, exist_ok=True)
 
         plt.rcParams['savefig.facecolor'] = self.maincolor
         plt.rcParams['figure.facecolor'] = self.maincolor
@@ -345,7 +372,7 @@ class Canvas:
         if self.extent[0]<=lonlat[0] and self.extent[1]>=lonlat[0] and self.extent[2]<=lonlat[1] and self.extent[3]>=lonlat[1]:
             self.text(lonlat[0],lonlat[1], text, size=self.scalling_value(0.45), **kwargs)
     
-    def manual_tick_axes(self):
+    def manual_tick_axes(self, axis_format, size=0.6):
         gl = self.__ax_main.gridlines(
             crs=ccrs.PlateCarree(), color='gray', linestyle='--', linewidth=0.25, alpha=0.4,
             xlocs=self.__xlocs, ylocs=self.__ylocs)
@@ -355,19 +382,24 @@ class Canvas:
 
         yrange=ylim[1]-ylim[0]
         xrange=xlim[1]-xlim[0]
-        for xtick in self.__xlocs[(self.__xlocs>self.extent[0]) & (self.__xlocs<self.extent[1])]:
-            if xtick>0:
-                string = f'{xtick:3.0f}° E'
-            else:
-                string = f'{abs(xtick):3.0f}° W'
-            self.text(xtick, ylim[0]+yrange*0.01, string, size=self.scalling_value(0.6), color='w', ha='center', va='bottom', bbox=dict(boxstyle='round', facecolor='k', edgecolor='none', alpha=0.28, pad=0.28),weight="bold", zorder=5)
 
-        for ytick in self.__ylocs[(self.__ylocs>self.extent[2]) & (self.__ylocs<self.extent[3])][::2]:
-            if ytick>0:
-                string = f'{ytick:3.0f}° N'
+
+        __skip = 1 if len(self.__xlocs[(self.__xlocs>self.extent[0]) & (self.__xlocs<self.extent[1])])==2 else 2
+        for xtick in self.__xlocs[(self.__xlocs>self.extent[0]) & (self.__xlocs<self.extent[1])][::__skip]:
+            if xtick>0:
+                string = f'{xtick:{axis_format}}° E'
             else:
-                string = f'{abs(ytick):3.0f}° S'
-            self.text(self.extent[0]+xrange*0.006, ytick, string, size=self.scalling_value(0.6), color='w', ha='left', va='center', bbox=dict(boxstyle='round', facecolor='k', edgecolor='none', alpha=0.28, pad=0.28),weight="bold", zorder=5)
+                string = f'{abs(xtick):{axis_format}}° W'
+            self.text(xtick, ylim[0]+yrange*0.01, string, size=self.scalling_value(size), color='w', ha='center', va='bottom', bbox=dict(boxstyle='round', facecolor='k', edgecolor='none', alpha=0.28, pad=0.28),weight="bold", zorder=5)
+
+        __skip = 1 if len(self.__ylocs[(self.__ylocs>self.extent[2]) & (self.__ylocs<self.extent[3])])==2 else 2
+
+        for ytick in self.__ylocs[(self.__ylocs>self.extent[2]) & (self.__ylocs<self.extent[3])][::__skip]:
+            if ytick>0:
+                string = f'{ytick:{axis_format}}° N'
+            else:
+                string = f'{abs(ytick):{axis_format}}° S'
+            self.text(self.extent[0]+xrange*0.006, ytick, string, size=self.scalling_value(size), color='w', ha='left', va='center', bbox=dict(boxstyle='round', facecolor='k', edgecolor='none', alpha=0.28, pad=0.28),weight="bold", zorder=5)
 
     def show(self):
         plt.show()
@@ -434,7 +466,6 @@ if __name__ == '__main__':
     img = canvas.imshow(data, extent=extent)
 
     lticks = np.linspace(data.min(), data.max(), 8).astype(np.float16)[:-1]
-    print(lticks, data.min(), data.max())
     cbar = canvas.colorbar(img, extend='neither', lticks=lticks)
 
     canvas.title('ESTE ES UN TITULO', weight='bold', fontname='Liberation Serif', loc='t')
