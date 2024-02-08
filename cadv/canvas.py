@@ -134,7 +134,6 @@ class Canvas:
         try:
             data, lons = add_cyclic_point(data, coord=np.arange(lons[0],lons[-1]+dlon*0.5, dlon))
         except:
-            print('PI PI PI')
         if 'transform' in kwargs:
             self.__transform = kwargs['transform']
         if fill:
@@ -152,11 +151,15 @@ class Canvas:
         kwargs['fontsize'] = kwargs['fontsize'] if 'fontsize' in kwargs else self.scalling_value(0.5)
         return self.__ax_main.clabel(obj, **kwargs)
     
-    def colorbar(self, image, lab, **kwargs):
+    def colorbar(self, image, yi=None, yf=None, **kwargs):
         proportion = self.scalling_value(1)
         self.__ax_footer.axis('off')
-        cax_yini = self.__ax_footer.get_position().height*0.45
-        cax = self.__fig.add_axes([self.__ax_footer.get_position().x0, cax_yini, self.__ax_footer.get_position().x1, self.__ax_footer.get_position().height-cax_yini])
+        cax_yini = 0.45 if yi is None else yi
+        cax_yini = self.__ax_footer.get_position().height*cax_yini
+        cax_yend = self.__ax_footer.get_position().height-cax_yini 
+        cax_yend = cax_yend if yf is None else cax_yend*yf
+
+        cax = self.__fig.add_axes([self.__ax_footer.get_position().x0, cax_yini, self.__ax_footer.get_position().x1, cax_yend])
 
 
         cbar = plt.colorbar(image, cax=cax, orientation='horizontal', pad=0.05, fraction=0.5, aspect=100, **kwargs)
@@ -216,7 +219,10 @@ class Canvas:
             proporcion = 0.008 * (ancho + alto) / 2
         return proporcion*value*3/4
     
-    def add_logo(self, logo):
+    def add_logo(self, logo, **kwargs):
+        # ydelta para desplazar un número de pixeles en y
+        ydelta = 0 if kwargs.get('ydelta') is None else kwargs.get('ydelta')
+
         # Abriendo imagen LOGO
         logo = Image.open(logo)
 
@@ -233,7 +239,7 @@ class Canvas:
 
         # Calcular posición del Logo
         x_location = 0
-        y_location = img_size[1] - logo_height
+        y_location = img_size[1] - logo_height  + ydelta
 
         # Añadiendo Logo
         self.__fig.figimage(logo, x_location, y_location, origin='upper', zorder=3)
