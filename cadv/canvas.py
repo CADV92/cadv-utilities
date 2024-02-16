@@ -85,6 +85,9 @@ class Canvas:
         # self.__ax_bottom_frame.set_visible(True)
         self.__ax_footer.set_axis_off()
         self.manual_tick_axes(self.__axis_format, size=self.__axis_fsize)
+
+    def get_canva_main(self):
+        return self.__ax_main
     
     def headeroff(self, status=True):
         self.__ax_header.set_visible(status)
@@ -283,6 +286,9 @@ class Canvas:
 
     def scatter(self, **kwargs):
         return self.__ax_main.scatter(**kwargs)
+    
+    def get_features(self):
+        return cartopy.feature
     
     def border(self, color='black', width=0.2, fill=True):
         # Add coastlines, borders and gridlines
