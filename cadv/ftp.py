@@ -31,7 +31,6 @@ class myFTP(FTP):
 
         try:
             # Upload file
-            print('SUBIENDO ARCHIVO')
             with open(basename, 'rb') as f:
                 self.storbinary(f'STOR {basename}', f, callback=callback)
         finally:
