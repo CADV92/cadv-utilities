@@ -17,7 +17,10 @@ class myFTP(FTP):
         
         # Ensure remote path exists and switch to it
         if path:
-            self._ensure_remote_path(path)
+            if not self._path_exists(path):
+                if not self._ensure_remote_path(path):
+                    print(f"\tError: Could not create or access directory {path}. Insufficient permissions.")
+                    return
             self.cwd(path)
         else:
             path = './'
@@ -28,6 +31,7 @@ class myFTP(FTP):
 
         try:
             # Upload file
+            print('SUBIENDO ARCHIVO')
             with open(basename, 'rb') as f:
                 self.storbinary(f'STOR {basename}', f, callback=callback)
         finally:
@@ -100,3 +104,21 @@ class myFTP(FTP):
                 self.cwd(current_path)
         # Return to the root directory after ensuring the path exists
         self.cwd(current_ftp_path)
+        return True
+
+    def _path_exists(self, path):
+        """
+        Checks if a path exists on the FTP server.
+
+        Parameters:
+        - path (str): Path on the server to check.
+
+        Returns:
+        - bool: True if path exists, False otherwise.
+        """
+        try:
+            self.cwd(path)
+            self.cwd('/')  # Return to the root if path exists
+            return True
+        except error_perm:
+            return False
