@@ -60,26 +60,45 @@ class Canvas:
             [0.037037037037037035, 0.9259259259259259, 0.03703703703703698], 0
             )
 
-        if central_longitude is not None:
-            self.ax_main = self._fig.add_axes([0+glDelta, dy_axes[0]+glDelta, 1-glDelta, dy_axes[1]-glDelta], projection=ccrs.PlateCarree(central_longitude=central_longitude))
+        # Configurar proyección principal
+        if isinstance(self.projection, ccrs.PlateCarree):
+            central_longitude = central_longitude or self.central_longitude
+            self.ax_main = self._fig.add_axes(
+                [0 + glDelta, dy_axes[0] + glDelta, 1 - glDelta, dy_axes[1] - glDelta], 
+                projection=ccrs.PlateCarree(central_longitude=central_longitude)
+            )
+        elif isinstance(self.projection, ccrs.Geostationary):
+            self.ax_main = self._fig.add_axes(
+                [0 + glDelta, dy_axes[0] + glDelta, 1 - glDelta, dy_axes[1] - glDelta], 
+                projection=self.projection
+            )
         else:
-            self.ax_main = self._fig.add_axes([0, dy_axes[0]-0.03, 1, dy_axes[1]], crs=self.projection)
-        
-        if extent is not None:
-            self.ax_main.set_extent(extent, crs=self.projection)
-        
-        _ydelta = self._delta_tick(self.extent[2],self.extent[3], n=6)
-        _xdelta = self._delta_tick(self.extent[0],self.extent[1], n=6)
-        
-        if _xdelta <= 0:
-            _xdelta = 1
-        self.__xlocs = np.arange(-180,180,_xdelta)
-        if _ydelta <= 0:
-            _ydelta = 1
-        self.__ylocs = np.arange(-90,90,_ydelta)
+            self.ax_main = self._fig.add_axes(
+                [0 + glDelta, dy_axes[0] + glDelta, 1 - glDelta, dy_axes[1] - glDelta], 
+                projection=self.projection
+            )
 
-        self._configure_grid()
+        # Configurar extent si es compatible
+        if isinstance(self.projection, (ccrs.PlateCarree, ccrs.Mercator, ccrs.LambertConformal)):
+            if extent is not None:
+                self.ax_main.set_extent(extent, crs=self.projection)
+        
+            _ydelta = self._delta_tick(self.extent[2],self.extent[3], n=6)
+            _xdelta = self._delta_tick(self.extent[0],self.extent[1], n=6)
+            
+            if _xdelta <= 0:
+                _xdelta = 1
+            self.__xlocs = np.arange(-180,180,_xdelta)
+            if _ydelta <= 0:
+                _ydelta = 1
+            self.__ylocs = np.arange(-90,90,_ydelta)
 
+            self._configure_grid()
+
+
+            if self.tick_axes:
+                self.manual_tick_axes(self.axis_format, size=self.axis_fsize)
+        
         # Header
         if _header:
             self.ax_header = self._fig.add_axes([0.01, 1-dy_axes[2], 0.98, dy_axes[2]], facecolor=self.maincolor, frameon=False)
@@ -89,9 +108,6 @@ class Canvas:
         self.ax_footer = self._fig.add_axes([0+glDelta, 0, 1-glDelta, dy_axes[0]+0.01])
         self.ax_footer.set_visible(True)
         self.ax_footer.set_axis_off()
-
-        if self.tick_axes:
-            self.manual_tick_axes(self.axis_format, size=self.axis_fsize)
     
     def _configure_grid(self):
         """
