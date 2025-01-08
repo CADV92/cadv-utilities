@@ -318,6 +318,7 @@ class Canvas:
         if not points:
             if filter is None:
                 shape_feature = list(shpreader.Reader(shpfile).geometries())
+                shape_feature = [shp for shp in shape_feature if shp is not None]
             else:
                 shape_feature = []
                 reader = shpreader.Reader(shpfile)
@@ -464,7 +465,6 @@ class Canvas:
 
 
         __skip = 1 if len(self.__xlocs[(self.__xlocs>self.extent[0]) & (self.__xlocs<self.extent[1])])>6 else 2
-        print("LEN XLOCS",len(self.__xlocs[(self.__xlocs>self.extent[0]) & (self.__xlocs<self.extent[1])]))
         self.__xlocs = self.__xlocs + self.central_longitude
         for xtick in self.__xlocs[(self.__xlocs>self.extent[0]) & (self.__xlocs<self.extent[1])][::__skip]:
             if self.central_longitude!=0:
@@ -476,17 +476,15 @@ class Canvas:
                     string = f'{abs(xtick+360):{axis_format}}° E'
                 else:
                     string = f'{abs(xtick):{axis_format}}° W'
-            print(xtick, ylim[0]+yrange*0.01, string)
+            
             self.text(xtick, ylim[0]+yrange*0.01, string, size=self.scalling_value(size), color='w', ha='center', va='bottom', bbox=dict(boxstyle='round', facecolor='k', edgecolor='none', alpha=0.28, pad=0.28),weight="bold", zorder=5)
 
         __skip = 1 if len(self.__ylocs[(self.__ylocs>self.extent[2]) & (self.__ylocs<self.extent[3])])==2 else 2
-        print("YLOCS", self.__ylocs, self.extent)
         for ytick in self.__ylocs[(self.__ylocs>self.extent[2]) & (self.__ylocs<self.extent[3])][::__skip]:
             if ytick>0:
                 string = f'{ytick:{axis_format}}° N'
             else:
                 string = f'{abs(ytick):{axis_format}}° S'
-            print(self.extent[0]+xrange*0.006, ytick, string)
             self.text(self.extent[0]+xrange*0.006, ytick, string, size=self.scalling_value(size), color='w', ha='left', va='center', bbox=dict(boxstyle='round', facecolor='k', edgecolor='none', alpha=0.28, pad=0.28),weight="bold", zorder=5)
 
     def show(self):
