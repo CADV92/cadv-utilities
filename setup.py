@@ -2,12 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name='cadv',
-    version='0.51',
+    version='1.0',
     packages=['cadv'],
     install_requires=[
         'numpy',
         'matplotlib',
         'cartopy',
+        'paramiko'
         # cualquier otra dependencia
     ],
     author='Christian Dávila',
