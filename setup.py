@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name='cadv',
-    version='1.01',
-    packages=['cadv'],
+    version='1.02',
+    packages=['cadv', 'cadv.network'],
     install_requires=[
         'numpy',
         'matplotlib',
