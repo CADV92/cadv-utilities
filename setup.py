@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='cadv',
-    version='1.02',
+    version='1.3.0',
     packages=['cadv', 'cadv.network'],
     install_requires=[
         'numpy',

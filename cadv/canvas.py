@@ -518,7 +518,7 @@ def ccmap(colors, intervals, increase):
             Pallete = color(np.linspace(0, 11, NColors_List[idx]))
             Pallete = Pallete[IColors_Split[idx]:EColors_Split[idx]]
         elif isinstance(color,list):
-            color = [np.array(clr)/255 if isinstance(clr,list) else clr for clr in color]
+            color = [np.array(clr)/255 if isinstance(clr,(list, tuple)) else clr for clr in color]
 
             Pallete = LinearSegmentedColormap.from_list(name='ColorGradient',
                                                         colors=color, N=NColors_List[idx])
