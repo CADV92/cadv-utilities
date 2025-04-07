@@ -47,7 +47,7 @@ class myFTP(FTP):
         - callback (function, optional): Function to call on each block of data downloaded.
         - path (str): Local path where the file will be saved. 
         """
-        with open(os.path.join(path, filename), "wb") as f:
+        with open(os.path.join(path, os.path.basename(filename)), "wb") as f:
             self.retrbinary(f'RETR {filename}', f.write if callback is None else callback)
 
     def remove_files_time(self, files, time=30, force=False):
